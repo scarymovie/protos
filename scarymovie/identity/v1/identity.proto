@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package scarymovie.identity.v1;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+
+option go_package = "github.com/scarymovie/protos/scarymovie/identity/v1;identitypb";
+
+// ───────────────────────────────── service ──────────────────────────────────
+service IdentityService {
+  // 1. Регистрация пользователя
+  rpc Register(RegisterRequest) returns (AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity/register"
+      body: "*"
+    };
+  }
+
+  // 2. Логин (аутентификация)
+  rpc Authenticate(AuthenticateRequest) returns (AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity/authenticate"
+      body: "*"
+    };
+  }
+
+  // 3. Обновление (refresh) токенов
+  rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/identity/refresh"
+      body: "*"
+    };
+  }
+
+  // 3. Отзыв токенов (logout во всех/одной сессии)
+  rpc RevokeToken(RevokeTokenRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/identity/revoke"
+      body: "*"
+    };
+  }
+
+  // 4. Проверка токена — вызывают gateway-service и hub-service
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {
+    // HTTP-маршрут обычно не нужен, вызывается gRPC-клиентами
+  }
+
+  // 5. CRUD профиля текущего пользователя
+  rpc GetProfile(GetProfileRequest) returns (Profile) {
+    option (google.api.http) = { get: "/v1/identity/profile" };
+  }
+  rpc UpdateProfile(UpdateProfileRequest) returns (Profile) {
+    option (google.api.http) = {
+      patch: "/v1/identity/profile"
+      body: "*"
+    };
+  }
+  rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = { delete: "/v1/identity/profile" };
+  }
+}
+
+// ─────────────────────────────── messages ───────────────────────────────────
+message RegisterRequest {
+  string email    = 1 [
+    (validate.rules).string = {email: true, ignore_empty: false}
+  ];
+  string password = 2 [
+    (validate.rules).string = {min_len: 8, max_len: 128}
+  ];
+  string full_name = 3 [
+    (validate.rules).string = {min_len: 2, max_len: 255}
+  ];
+}
+
+
+message AuthenticateRequest {
+  string email    = 1;
+  string password = 2;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RevokeTokenRequest {
+  // если передан пустой – отзываем все refresh-токены пользователя
+  string refresh_token = 1;
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  string user_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  bool   valid   = 3;
+  string reason  = 4; // если !valid
+}
+
+message GetProfileRequest {} // контекст берётся из access-токена
+
+message UpdateProfileRequest {
+  string full_name = 1;
+  // при необходимости можно добавить phone, avatar_url и т.п.
+}
+
+message DeleteProfileRequest {}
+
+message AuthResponse {
+  string user_id       = 1;
+  string access_token  = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp access_expires_at  = 4;
+  google.protobuf.Timestamp refresh_expires_at = 5;
+}
+
+message Profile {
+  string user_id     = 1;
+  string email       = 2;
+  string full_name   = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
