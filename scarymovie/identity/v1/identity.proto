@@ -2,7 +2,6 @@ syntax = "proto3";
 
 package scarymovie.identity.v1;
 
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
 import "validate/validate.proto";
@@ -11,71 +10,65 @@ option go_package = "github.com/scarymovie/protos/scarymovie/identity/v1;identit
 
 // ───────────────────────────────── service ──────────────────────────────────
 service IdentityService {
-  // 1. Регистрация пользователя
-  rpc Register(RegisterRequest) returns (AuthResponse) {
+  // Регистрация пользователя
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
     option (google.api.http) = {
       post: "/v1/identity/register"
       body: "*"
     };
   }
 
-  // 2. Логин (аутентификация)
-  rpc Authenticate(AuthenticateRequest) returns (AuthResponse) {
+  // Логин (аутентификация)
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {
     option (google.api.http) = {
       post: "/v1/identity/authenticate"
       body: "*"
     };
   }
 
-  // 3. Обновление (refresh) токенов
-  rpc RefreshToken(RefreshTokenRequest) returns (AuthResponse) {
+  // Обновление (refresh) токенов
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
     option (google.api.http) = {
       post: "/v1/identity/refresh"
       body: "*"
     };
   }
 
-  // 3. Отзыв токенов (logout во всех/одной сессии)
-  rpc RevokeToken(RevokeTokenRequest) returns (google.protobuf.Empty) {
+  // Отзыв токенов (logout во всех/одной сессии)
+  rpc RevokeToken(RevokeTokenRequest) returns (RevokeTokenResponse) {
     option (google.api.http) = {
       post: "/v1/identity/revoke"
       body: "*"
     };
   }
 
-  // 4. Проверка токена — вызывают gateway-service и hub-service
+  // Проверка токена — вызывают gateway‑service и hub‑service
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {
-    // HTTP-маршрут обычно не нужен, вызывается gRPC-клиентами
+    // HTTP‑маршрут не нужен, вызывается gRPC‑клиентами
   }
 
-  // 5. CRUD профиля текущего пользователя
-  rpc GetProfile(GetProfileRequest) returns (Profile) {
+  // CRUD профиля текущего пользователя
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse) {
     option (google.api.http) = { get: "/v1/identity/profile" };
   }
-  rpc UpdateProfile(UpdateProfileRequest) returns (Profile) {
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse) {
     option (google.api.http) = {
       patch: "/v1/identity/profile"
       body: "*"
     };
   }
-  rpc DeleteProfile(DeleteProfileRequest) returns (google.protobuf.Empty) {
+  rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse) {
     option (google.api.http) = { delete: "/v1/identity/profile" };
   }
 }
 
 // ─────────────────────────────── messages ───────────────────────────────────
+// --- Requests ---------------------------------------------------------------
 message RegisterRequest {
-  string email    = 1 [
-    (validate.rules).string = {email: true, ignore_empty: false}
-  ];
-  string password = 2 [
-    (validate.rules).string = {min_len: 8, max_len: 128}
-  ];
-  string full_name = 3 [
-    (validate.rules).string = {min_len: 2, max_len: 255}
-  ];
+  string email      = 1 [(validate.rules).string = {email: true, ignore_empty: false}];
+  string password   = 2 [(validate.rules).string = {min_len: 8, max_len: 128}];
+  string full_name  = 3 [(validate.rules).string = {min_len: 2, max_len: 255}];
 }
-
 
 message AuthenticateRequest {
   string email    = 1;
@@ -87,7 +80,7 @@ message RefreshTokenRequest {
 }
 
 message RevokeTokenRequest {
-  // если передан пустой – отзываем все refresh-токены пользователя
+  // если строка пустая – отзываем все refresh‑токены пользователя
   string refresh_token = 1;
 }
 
@@ -95,14 +88,7 @@ message ValidateTokenRequest {
   string access_token = 1;
 }
 
-message ValidateTokenResponse {
-  string user_id = 1;
-  google.protobuf.Timestamp expires_at = 2;
-  bool   valid   = 3;
-  string reason  = 4; // если !valid
-}
-
-message GetProfileRequest {} // контекст берётся из access-токена
+message GetProfileRequest {} // контекст берётся из access‑токена
 
 message UpdateProfileRequest {
   string full_name = 1;
@@ -111,18 +97,51 @@ message UpdateProfileRequest {
 
 message DeleteProfileRequest {}
 
-message AuthResponse {
-  string user_id       = 1;
-  string access_token  = 2;
-  string refresh_token = 3;
+// --- Responses --------------------------------------------------------------
+message RegisterResponse {
+  AuthPayload auth = 1;
+}
+
+message AuthenticateResponse {
+  AuthPayload auth = 1;
+}
+
+message RefreshTokenResponse {
+  AuthPayload auth = 1;
+}
+
+message RevokeTokenResponse {} // пусто, но уникальный тип
+
+message ValidateTokenResponse {
+  string user_id               = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  bool   valid                 = 3;
+  string reason                = 4; // если !valid
+}
+
+message GetProfileResponse {
+  Profile profile = 1;
+}
+
+message UpdateProfileResponse {
+  Profile profile = 1;
+}
+
+message DeleteProfileResponse {}
+
+// --- Common DTOs ------------------------------------------------------------
+message AuthPayload {
+  string user_id               = 1;
+  string access_token          = 2;
+  string refresh_token         = 3;
   google.protobuf.Timestamp access_expires_at  = 4;
   google.protobuf.Timestamp refresh_expires_at = 5;
 }
 
 message Profile {
-  string user_id     = 1;
-  string email       = 2;
-  string full_name   = 3;
+  string user_id               = 1;
+  string email                 = 2;
+  string full_name             = 3;
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp updated_at = 5;
 }
